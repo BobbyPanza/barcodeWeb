@@ -1,26 +1,87 @@
+/* Base */
+:root {
+  --bs-font-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
 html {
   font-size: 14px;
-}
-
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
   position: relative;
   min-height: 100%;
 }
 
-body {
-  margin-bottom: 60px;
+@media (min-width: 768px) {
+  html {
+    font-size: 15px;
+  }
 }
 
+body {
+  margin-bottom: 60px;
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+/* Focus rings */
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus,
+.form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+/* Cards */
+.card {
+  border: 1px solid #dee2e6;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+
+.card-header {
+  background-color: #f1f3f5;
+  font-weight: 600;
+  font-size: .875rem;
+  letter-spacing: .01em;
+  border-bottom: 1px solid #dee2e6;
+}
+
+/* Tables */
+.table th {
+  font-weight: 600;
+  font-size: .8125rem;
+  white-space: nowrap;
+  background-color: #f1f3f5;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.table-sm td, .table-sm th {
+  padding: .35rem .5rem;
+}
+
+/* Page headings */
+h1.h3 {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+/* Navbar */
+.navbar-brand {
+  font-size: 1rem;
+  letter-spacing: .02em;
+}
+
+/* Footer */
+.footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background-color: #fff;
+}
+
+/* Alert */
+.alert-info {
+  background-color: #e7f3ff;
+  border-color: #b6d4fe;
+  color: #084298;
+}
+
+/* ---- Lista Prelievo ---- */
 .piani-assegnati-table-wrap {
   min-height: 420px;
 }
@@ -53,14 +114,17 @@ body {
 }
 
 .lista-prelievo-page .piani-assegnati-table {
-  min-width: 1180px;
+  min-width: 1280px;
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+/* Floating labels */
+.form-floating > .form-control-plaintext::placeholder,
+.form-floating > .form-control::placeholder {
   color: var(--bs-secondary-color);
   text-align: end;
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+.form-floating > .form-control-plaintext:focus::placeholder,
+.form-floating > .form-control:focus::placeholder {
   text-align: start;
 }

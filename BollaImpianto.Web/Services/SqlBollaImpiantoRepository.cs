@@ -48,23 +48,31 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
         var hasOperatoreColumn = await ColumnExistsAsync(connection, "XV_A_NES_BOLLAIMPIANTO", "x_Op_Ass", cancellationToken);
         var applyMineFilter = onlyMine && hasOperatoreColumn;
         var hasOlCodOnView = await ColumnExistsAsync(connection, "XV_A_NES_BOLLAIMPIANTO", "OLCOD", cancellationToken);
+        var hasPlacche = await ColumnExistsAsync(connection, "XV_LISTA_PRELIEVO_CLIENTI_MATERIALE", "Placche", cancellationToken);
 
-        var query = hasOlCodOnView
-            ? """
-                SELECT src.IDNES, LTRIM(RTRIM(ISNULL(src.OLCOD, ''))) as Bolla, src.NSDSC, src.MADSC, src.DTEXP, src.NSNOT, src.TEMPO, src.RIPET
-                FROM XV_A_NES_BOLLAIMPIANTO src
-                WHERE (@Search IS NULL OR src.NSDSC LIKE '%' + @Search + '%' OR src.MADSC LIKE '%' + @Search + '%' OR LTRIM(RTRIM(ISNULL(src.OLCOD, ''))) LIKE '%' + @Search + '%')
-                  AND (@OnlyMine = 0 OR ISNULL(src.x_Op_Ass, '') = ISNULL(@Operatore, ''))
-                ORDER BY src.IDNES DESC
-                """
-            : """
-                SELECT src.IDNES, LTRIM(RTRIM(ISNULL(nes.OLCOD, ''))) as Bolla, src.NSDSC, src.MADSC, src.DTEXP, src.NSNOT, src.TEMPO, src.RIPET
-                FROM XV_A_NES_BOLLAIMPIANTO src
-                INNER JOIN dbo.A_NES nes ON nes.IDNES = src.IDNES
-                WHERE (@Search IS NULL OR src.NSDSC LIKE '%' + @Search + '%' OR src.MADSC LIKE '%' + @Search + '%' OR LTRIM(RTRIM(ISNULL(nes.OLCOD, ''))) LIKE '%' + @Search + '%')
-                  AND (@OnlyMine = 0 OR ISNULL(src.x_Op_Ass, '') = ISNULL(@Operatore, ''))
-                ORDER BY src.IDNES DESC
-                """;
+        var bollaExpr = hasOlCodOnView
+            ? "LTRIM(RTRIM(ISNULL(src.OLCOD, ''))) as Bolla"
+            : "LTRIM(RTRIM(ISNULL(nes.OLCOD, ''))) as Bolla";
+        var bollaJoin = hasOlCodOnView
+            ? ""
+            : "\nINNER JOIN dbo.A_NES nes ON nes.IDNES = src.IDNES";
+        var bollaSearchExpr = hasOlCodOnView
+            ? "OR LTRIM(RTRIM(ISNULL(src.OLCOD, ''))) LIKE '%' + @Search + '%'"
+            : "OR LTRIM(RTRIM(ISNULL(nes.OLCOD, ''))) LIKE '%' + @Search + '%'";
+        var placcheSelect = hasPlacche
+            ? ", plc.Placche"
+            : ", CAST(NULL as varchar(max)) as Placche";
+        var placcheApply = hasPlacche
+            ? "\nOUTER APPLY (SELECT TOP 1 vp.Placche FROM dbo.XV_LISTA_PRELIEVO_CLIENTI_MATERIALE vp WHERE vp.IDNesting = src.IDNES) plc"
+            : "";
+
+        var query = $"""
+            SELECT src.IDNES, {bollaExpr}, src.NSDSC, src.MADSC, src.DTEXP, src.NSNOT, src.TEMPO, src.RIPET{placcheSelect}
+            FROM XV_A_NES_BOLLAIMPIANTO src{bollaJoin}{placcheApply}
+            WHERE (@Search IS NULL OR src.NSDSC LIKE '%' + @Search + '%' OR src.MADSC LIKE '%' + @Search + '%' {bollaSearchExpr})
+              AND (@OnlyMine = 0 OR ISNULL(src.x_Op_Ass, '') = ISNULL(@Operatore, ''))
+            ORDER BY src.IDNES DESC
+            """;
 
         await using var command = new SqlCommand(query, connection);
         command.Parameters.AddWithValue("@Search", string.IsNullOrWhiteSpace(search) ? DBNull.Value : search.Trim());
@@ -83,7 +91,8 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
                 DtExp = reader.IsDBNull(4) ? null : reader.GetDateTime(4),
                 NsNot = ReadNullableString(reader, 5),
                 Tempo = ReadNullableDecimal(reader, 6),
-                Ripet = ReadNullableInt(reader, 7)
+                Ripet = ReadNullableInt(reader, 7),
+                Placche = ReadNullableString(reader, 8)
             });
         }
 

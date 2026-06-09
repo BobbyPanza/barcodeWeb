@@ -11,4 +11,5 @@ public sealed class PianoLavoroRow
     public string? NsNot { get; set; }
     public decimal? Tempo { get; set; }
     public int? Ripet { get; set; }
+    public string? Placche { get; set; }
 }

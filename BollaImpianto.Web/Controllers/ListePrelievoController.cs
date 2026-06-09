@@ -40,11 +40,7 @@ public sealed class ListePrelievoController(
         var selected = listaId;
         if (selected.HasValue && liste.All(l => l.Id != selected.Value))
         {
-            selected = liste.FirstOrDefault()?.Id;
-        }
-        else if (!selected.HasValue)
-        {
-            selected = liste.FirstOrDefault()?.Id;
+            selected = null;
         }
 
         var currentUser = User.Identity?.Name?.Trim() ?? string.Empty;
