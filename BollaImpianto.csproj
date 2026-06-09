@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>cut.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="BollaImpianto.Web\**\*.cs" />
+    <EmbeddedResource Remove="BollaImpianto.Web\**\*" />
+    <Content Remove="BollaImpianto.Web\**\*" />
+    <None Remove="BollaImpianto.Web\**\*" />
+  </ItemGroup>
+
+</Project>

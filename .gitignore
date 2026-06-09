@@ -1,0 +1,21 @@
+## .NET / ASP.NET Core
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.zip
+publish/
+publish-client/
+pubblica*/
+v4/
+v5/
+v6/
+v7/
+v8/
+v8.zip
+BollaImpianto.Web-v*.zip
+print/
+
+## Secrets / local config
+appsettings.Development.json

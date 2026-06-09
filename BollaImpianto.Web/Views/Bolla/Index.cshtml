@@ -1,0 +1,174 @@
+@model BollaImpianto.Web.Models.BollaPageViewModel
+@{
+    ViewData["Title"] = "Bolla Impianto";
+}
+
+<div class="container py-4">
+    <h1 class="mb-4">Bolla Impianto - Web</h1>
+
+    @if (!string.IsNullOrWhiteSpace(Model.LastResult))
+    {
+        <div class="alert alert-info">@Model.LastResult</div>
+    }
+
+    <form asp-action="Submit" method="post" class="row g-2 mb-4">
+        <input type="hidden" name="Search" value="@Model.Search" />
+        <input type="hidden" name="OnlyMine" value="@Model.OnlyMine" />
+        <div class="col-md-4">
+            <label class="form-label" for="bollaInput">Bolla</label>
+            <input class="form-control" id="bollaInput" name="Bolla" value="@Model.Bolla" required autofocus />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="impiantoInput">Impianto</label>
+            <div class="input-group">
+                <input class="form-control" id="impiantoInput" name="Impianto" value="@Model.Impianto" required />
+                <button type="button" class="btn btn-outline-secondary" id="svuotaImpiantoBtn" title="Svuota impianto e torna su Bolla (pistola barcode)">Svuota</button>
+            </div>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary">Esegui</button>
+        </div>
+    </form>
+
+    <form asp-action="Index" method="get" class="row g-2 mb-3">
+        <div class="col-md-6">
+            <label class="form-label" for="searchInput">Filtro (descrizione, materiale, bolla)</label>
+            <input class="form-control" id="searchInput" name="search" value="@Model.Search" />
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check mb-1">
+                <input type="hidden" name="onlyMine" value="false" />
+                <input class="form-check-input" type="checkbox" id="onlyMine" name="onlyMine" value="true" checked="@Model.OnlyMine" />
+                <label class="form-check-label" for="onlyMine">Solo assegnazioni mie</label>
+            </div>
+        </div>
+        <div class="col-md-3 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-outline-secondary">Filtra</button>
+            <a class="btn btn-outline-dark" asp-action="ExportCsv" asp-route-search="@Model.Search">Esporta CSV</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Bolla</th>
+                    <th>NSDSC</th>
+                    <th>MADSC</th>
+                    <th>DTEXP</th>
+                    <th>NSNOT</th>
+                    <th>TEMPO</th>
+                    <th>RIPET</th>
+                    <th class="text-muted small">IDNES</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    var formId = $"update-{row.IdNes}";
+                    <tr>
+                        <td>@row.Bolla</td>
+                        <td>@row.NsDsc</td>
+                        <td>@row.MaDsc</td>
+                        <td>
+                            <input class="form-control form-control-sm"
+                                   type="date"
+                                   name="dtExp"
+                                   form="@formId"
+                                   value="@row.DtExp?.ToString("yyyy-MM-dd")" />
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm"
+                                   type="text"
+                                   name="nsNot"
+                                   form="@formId"
+                                   value="@row.NsNot" />
+                        </td>
+                        <td>@(row.Tempo.HasValue ? Math.Round(row.Tempo.Value, 2).ToString("0.00") : string.Empty)</td>
+                        <td>@row.Ripet</td>
+                        <td class="text-muted small">@row.IdNes</td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1 align-items-center">
+                                <form id="@formId" asp-action="Update" method="post" class="d-inline">
+                                    <input type="hidden" name="idNes" value="@row.IdNes" />
+                                    <input type="hidden" name="search" value="@Model.Search" />
+                                    <input type="hidden" name="onlyMine" value="@Model.OnlyMine" />
+                                    <button type="submit" class="btn btn-sm btn-success">Salva</button>
+                                </form>
+                                <form asp-action="ClearDate" method="post" class="d-inline">
+                                    <input type="hidden" name="idNes" value="@row.IdNes" />
+                                    <input type="hidden" name="search" value="@Model.Search" />
+                                    <input type="hidden" name="onlyMine" value="@Model.OnlyMine" />
+                                    <input type="hidden" name="nsNot" value="@row.NsNot" />
+                                    <button type="submit" class="btn btn-sm btn-warning">Svuota data</button>
+                                </form>
+                                <form asp-action="ImpostaMacchinaGenerica" method="post" class="d-inline" onsubmit="return confirm('Impostare la macchina generica DLG-ALL_PLASMA su questo piano?');">
+                                    <input type="hidden" name="idNes" value="@row.IdNes" />
+                                    <input type="hidden" name="search" value="@Model.Search" />
+                                    <input type="hidden" name="onlyMine" value="@Model.OnlyMine" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="MACOD = DLG-ALL_PLASMA">Plasma generico</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    (function () {
+        function saveRow(form, row) {
+            fetch(form.action, { method: 'POST', body: new FormData(form), redirect: 'manual' })
+                .then(function (r) { flashRow(row, r.type === 'opaqueredirect' || r.ok); })
+                .catch(function () { flashRow(row, false); });
+        }
+
+        function flashRow(row, ok) {
+            row.style.transition = 'background-color 0.2s';
+            row.style.backgroundColor = ok ? '#d1e7dd' : '#f8d7da';
+            setTimeout(function () {
+                row.style.transition = 'background-color 1s';
+                row.style.backgroundColor = '';
+            }, 900);
+        }
+
+        var el = document.getElementById('bollaInput');
+        if (el) { el.focus(); el.select?.(); }
+
+        document.getElementById('svuotaImpiantoBtn')?.addEventListener('click', function () {
+            var imp = document.getElementById('impiantoInput');
+            if (imp) imp.value = '';
+            document.getElementById('bollaInput')?.focus();
+            document.getElementById('bollaInput')?.select?.();
+        });
+
+        document.querySelectorAll('tbody tr').forEach(function (row) {
+            var inputs = row.querySelectorAll('input[name="dtExp"], input[name="nsNot"]');
+            if (!inputs.length) return;
+            var formId = inputs[0].getAttribute('form');
+            var form = formId ? document.getElementById(formId) : null;
+            if (!form) return;
+            var initial = {};
+            inputs.forEach(function (inp) { initial[inp.name] = inp.value; });
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                inputs.forEach(function (i) { initial[i.name] = i.value; });
+                saveRow(form, row);
+            });
+
+            inputs.forEach(function (inp) {
+                inp.addEventListener('focusout', function (e) {
+                    if (e.relatedTarget && row.contains(e.relatedTarget)) return;
+                    var changed = Array.from(inputs).some(function (i) { return i.value !== initial[i.name]; });
+                    if (!changed) return;
+                    inputs.forEach(function (i) { initial[i.name] = i.value; });
+                    saveRow(form, row);
+                });
+            });
+        });
+    })();
+</script>

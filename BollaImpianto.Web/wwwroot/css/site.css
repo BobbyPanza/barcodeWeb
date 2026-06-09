@@ -1,0 +1,66 @@
+html {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  margin-bottom: 60px;
+}
+
+.piani-assegnati-table-wrap {
+  min-height: 420px;
+}
+
+.piani-assegnati-table {
+  min-width: 980px;
+}
+
+.piani-assegnati-table .azioni-col {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.piani-assegnati-table .testo-lungo {
+  min-width: 180px;
+}
+
+.lista-prelievo-page .lista-piani-non-assegnati-wrap .lista-piani-non-assegnati-body {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.lista-prelievo-page .lista-note-cell {
+  min-width: 140px;
+  max-width: 280px;
+}
+
+.lista-prelievo-page .piani-assegnati-table-wrap {
+  min-height: 200px;
+}
+
+.lista-prelievo-page .piani-assegnati-table {
+  min-width: 1180px;
+}
+
+.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+  color: var(--bs-secondary-color);
+  text-align: end;
+}
+
+.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+  text-align: start;
+}

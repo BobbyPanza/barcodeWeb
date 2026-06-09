@@ -1,0 +1,352 @@
+@model BollaImpianto.Web.Models.ListaPrelievoPageViewModel
+@{
+    ViewData["Title"] = "Liste di Prelievo";
+    var espandiSelezioneLista = !Model.ListaSelezionataId.HasValue;
+}
+
+<div class="py-3 lista-prelievo-page">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h1 class="h3 mb-0">Lista di prelievo</h1>
+        @if (Model.ListaSelezionataId.HasValue)
+        {
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#selezioneLista" aria-expanded="@(espandiSelezioneLista ? "true" : "false")" aria-controls="selezioneLista">
+                    Cerca / apri lista
+                </button>
+                <span class="text-muted small">Lista <strong class="text-body">#@Model.ListaSelezionataId</strong></span>
+                <button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#modalStampaLista" title="Stampa">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                        <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1h8v-1a2 2 0 0 0-2-2H5z"/>
+                    </svg>
+                    <span class="d-none d-sm-inline">Stampa</span>
+                </button>
+                @if (Model.CanEliminareListaSelezionata)
+                {
+                    <form asp-action="EliminaLista" method="post" class="d-inline" onsubmit="return confirm('Eliminare definitivamente questa lista e tutte le righe collegate?');">
+                        <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
+                        <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
+                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
+                        <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Elimina lista</button>
+                    </form>
+                }
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.LastResult))
+    {
+        <div class="alert alert-info py-2">@Model.LastResult</div>
+    }
+
+    <div id="selezioneLista" class="collapse @(espandiSelezioneLista ? "show" : "") mb-3">
+        <div class="row g-3">
+            <div class="col-lg-5">
+                <div class="card">
+                    <div class="card-header py-2">Nuova lista</div>
+                    <div class="card-body py-2">
+                        <form asp-action="NuovaLista" method="post" class="row g-2">
+                            <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                            <div class="col-6">
+                                <label class="form-label small mb-0">Operatore</label>
+                                <input name="operatore" class="form-control form-control-sm" value="@(string.IsNullOrWhiteSpace(Model.OperatoreNuovaLista) ? User.Identity?.Name : Model.OperatoreNuovaLista)" required readonly />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-0">Stato</label>
+                                <input name="stato" class="form-control form-control-sm" value="@Model.StatoNuovaLista" />
+                            </div>
+                            <div class="col-12">
+                                <button class="btn btn-primary btn-sm" type="submit">Crea nuova lista</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header py-2">Liste esistenti</div>
+                    <div class="card-body py-2">
+                        <form method="get" asp-action="Index" class="d-flex gap-2 flex-wrap align-items-center">
+                            <input type="hidden" name="printerName" value="@Model.PrinterName" />
+                            <label class="form-label mb-0 small text-muted">Filtro</label>
+                            <select name="nascondiCompletate" class="form-select form-select-sm" style="max-width: 11rem;" title="Filtro stato lista">
+                                @if (Model.NascondiListeCompletate)
+                                {
+                                    <option value="true" selected>Solo attive (nascondi completate)</option>
+                                    <option value="false">Mostra tutte</option>
+                                }
+                                else
+                                {
+                                    <option value="true">Solo attive (nascondi completate)</option>
+                                    <option value="false" selected>Mostra tutte</option>
+                                }
+                            </select>
+                            <select class="form-select form-select-sm flex-grow-1" style="min-width: 12rem;" name="listaId" required>
+                                <option value="">Seleziona lista...</option>
+                                @foreach (var lista in Model.Liste)
+                                {
+                                    var selected = Model.ListaSelezionataId == lista.Id;
+                                    <option value="@lista.Id" selected="@selected">
+                                        #@lista.Id - @lista.DataCreazione.ToString("dd/MM/yyyy HH:mm") - @(string.IsNullOrWhiteSpace(lista.Operatore) ? "N/D" : lista.Operatore) - @(string.IsNullOrWhiteSpace(lista.Stato) ? "N/D" : lista.Stato)
+                                    </option>
+                                }
+                            </select>
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">Apri</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.ListaSelezionataId.HasValue)
+    {
+        <div class="modal fade" id="modalStampaLista" tabindex="-1" aria-labelledby="modalStampaListaLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalStampaListaLabel">Stampa</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
+                            <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
+                            <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                            <div class="mb-3">
+                                <label class="form-label" for="modalPrinterSelect">Stampante</label>
+                                <select class="form-select" name="printerName" id="modalPrinterSelect">
+                                    <option value="">Default report</option>
+                                    @foreach (var stampante in Model.StampantiDisponibili)
+                                    {
+                                        var sel = string.Equals(stampante, Model.PrinterName, StringComparison.OrdinalIgnoreCase);
+                                        <option value="@stampante" selected="@sel">@stampante</option>
+                                    }
+                                </select>
+                                <div class="form-text">Stampanti visibili al processo dell’app (server).</div>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary" formaction="@Url.Action("StampaLista", "ListePrelievo")">Stampa lista</button>
+                                <button type="submit" class="btn btn-outline-primary" formaction="@Url.Action("StampaEtichette", "ListePrelievo")">Stampa etichette</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-2">
+            <div class="card-header py-2 d-flex align-items-center gap-2">
+                <span>Sparo barcode (bolla)</span>
+            </div>
+            <div class="card-body py-2">
+                <form asp-action="AssegnaDaBarcode" method="post" class="row g-2 align-items-end">
+                    <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
+                    <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
+                    <input type="hidden" name="printerName" value="@Model.PrinterName" />
+                    <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                    <div class="col">
+                        <label class="form-label small mb-0 visually-hidden" for="barcodeBollaInput">Bolla</label>
+                        <input class="form-control" id="barcodeBollaInput" name="barcodeBolla" placeholder="Es. 123456" autofocus autocomplete="off" required />
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-success" type="submit">Aggiungi piano</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-3 lista-piani-non-assegnati-wrap">
+            <div class="card-header py-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <span class="small fw-semibold">Piani non assegnati (assegnabili)</span>
+                <form method="get" asp-action="Index" class="d-flex gap-2 align-items-center flex-grow-1" style="max-width: 28rem;">
+                    <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
+                    <input type="hidden" name="printerName" value="@Model.PrinterName" />
+                    <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                    <input class="form-control form-control-sm" name="search" value="@Model.SearchNonAssigned" placeholder="Filtra bolla / nesting / materiale" />
+                    <button class="btn btn-outline-secondary btn-sm" type="submit">Filtra</button>
+                </form>
+            </div>
+            <div class="card-body py-2 lista-piani-non-assegnati-body">
+                <div class="table-responsive mb-0">
+                    <table class="table table-sm table-striped mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Bolla</th>
+                                <th>Nesting</th>
+                                <th>Macchina</th>
+                                <th>Mat.</th>
+                                <th class="text-end"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var piano in Model.PianiNonAssegnati)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@piano.Bolla</td>
+                                <td>@piano.CodiceNesting</td>
+                                <td class="small text-nowrap">@piano.Macchina</td>
+                                <td class="small">@piano.Materiale</td>
+                                <td class="text-end">
+                                    <form asp-action="AssegnaManuale" method="post" class="d-inline">
+                                        <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
+                                        <input type="hidden" name="idNes" value="@piano.IdNes" />
+                                        <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
+                                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
+                                        <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                                        <button class="btn btn-sm btn-outline-success py-0" type="submit">Assegna</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                @if (Model.PianiNonAssegnati.Count == 0)
+                {
+                    <p class="text-muted small mb-0 py-1">Nessun piano disponibile (o nessun risultato dal filtro).</p>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header py-2">Piani assegnati</div>
+            <div class="card-body p-2 p-md-3 table-responsive piani-assegnati-table-wrap">
+                <table class="table table-sm table-striped align-middle piani-assegnati-table mb-0">
+                    <thead>
+                        <tr>
+                            <th class="azioni-col">Azioni</th>
+                            <th>Bolla</th>
+                            <th>Nesting</th>
+                            <th>Impianto</th>
+                            <th>Materiale</th>
+                            <th>Dimensioni</th>
+                            <th>Taglio previsto</th>
+                            <th>Note</th>
+                            <th>Clienti</th>
+                            <th class="text-muted small">IDNES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var piano in Model.PianiAssegnati)
+                    {
+                        var formAggId = $"agg-{piano.IdNes}";
+                        <tr>
+                            <td class="azioni-col">
+                                <div class="d-flex flex-column gap-1 align-items-start">
+                                    <form asp-action="Disabbina" method="post" class="d-inline-block m-0">
+                                        <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
+                                        <input type="hidden" name="idNes" value="@piano.IdNes" />
+                                        <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
+                                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
+                                        <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                                        <button class="btn btn-sm btn-danger py-0" type="submit">Disabbina</button>
+                                    </form>
+                                    <form asp-action="StampaEtichettaSingola" method="post" class="d-inline-block m-0">
+                                        <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
+                                        <input type="hidden" name="idNes" value="@piano.IdNes" />
+                                        <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
+                                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
+                                        <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                                        <button class="btn btn-sm btn-outline-primary py-0" type="submit">Etichetta</button>
+                                    </form>
+                                    <form id="@formAggId" asp-action="AggiornaPianoLista" method="post" class="m-0">
+                                        <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
+                                        <input type="hidden" name="idNes" value="@piano.IdNes" />
+                                        <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
+                                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
+                                        <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+                                        <button type="submit" class="btn btn-sm btn-success py-0">Salva</button>
+                                    </form>
+                                </div>
+                            </td>
+                            <td class="text-nowrap">@piano.Bolla</td>
+                            <td>@piano.CodiceNesting</td>
+                            <td class="small text-nowrap">@piano.Macchina</td>
+                            <td>@piano.Materiale</td>
+                            <td class="text-nowrap">@piano.Lunghezza?.ToString("0") × @piano.Larghezza?.ToString("0") × @piano.Spessore?.ToString("0")</td>
+                            <td style="min-width: 10.5rem;">
+                                <input class="form-control form-control-sm"
+                                       type="date"
+                                       name="dtExp"
+                                       form="@formAggId"
+                                       value="@piano.DataPrevista?.ToString("yyyy-MM-dd")" />
+                            </td>
+                            <td class="lista-note-cell">
+                                <input class="form-control form-control-sm"
+                                       type="text"
+                                       name="nsNot"
+                                       form="@formAggId"
+                                       value="@piano.Note" />
+                            </td>
+                            <td class="testo-lungo small">@piano.Clienti</td>
+                            <td class="text-muted small">@piano.IdNes</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+                @if (Model.PianiAssegnati.Count == 0)
+                {
+                    <p class="text-muted small mb-0">Nessun piano in lista. Usa lo sparo barcode sopra.</p>
+                }
+            </div>
+        </div>
+    }
+    else if (Model.Liste.Count == 0)
+    {
+        <p class="text-muted">Nessuna lista presente: creane una con &quot;Crea nuova lista&quot;.</p>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            function saveRow(form, row) {
+                fetch(form.action, { method: 'POST', body: new FormData(form), redirect: 'manual' })
+                    .then(function (r) { flashRow(row, r.type === 'opaqueredirect' || r.ok); })
+                    .catch(function () { flashRow(row, false); });
+            }
+
+            function flashRow(row, ok) {
+                row.style.transition = 'background-color 0.2s';
+                row.style.backgroundColor = ok ? '#d1e7dd' : '#f8d7da';
+                setTimeout(function () {
+                    row.style.transition = 'background-color 1s';
+                    row.style.backgroundColor = '';
+                }, 900);
+            }
+
+            var input = document.getElementById('barcodeBollaInput');
+            if (input) { input.focus(); input.select?.(); }
+
+            document.querySelectorAll('tbody tr').forEach(function (row) {
+                var inputs = row.querySelectorAll('input[name="dtExp"], input[name="nsNot"]');
+                if (!inputs.length) return;
+                var formId = inputs[0].getAttribute('form');
+                var form = formId ? document.getElementById(formId) : null;
+                if (!form) return;
+                var initial = {};
+                inputs.forEach(function (inp) { initial[inp.name] = inp.value; });
+
+                form.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    inputs.forEach(function (i) { initial[i.name] = i.value; });
+                    saveRow(form, row);
+                });
+
+                inputs.forEach(function (inp) {
+                    inp.addEventListener('focusout', function (e) {
+                        if (e.relatedTarget && row.contains(e.relatedTarget)) return;
+                        var changed = Array.from(inputs).some(function (i) { return i.value !== initial[i.name]; });
+                        if (!changed) return;
+                        inputs.forEach(function (i) { initial[i.name] = i.value; });
+                        saveRow(form, row);
+                    });
+                });
+            });
+        })();
+    </script>
+}
