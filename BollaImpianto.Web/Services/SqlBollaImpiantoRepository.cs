@@ -48,7 +48,7 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
         var hasOperatoreColumn = await ColumnExistsAsync(connection, "XV_A_NES_BOLLAIMPIANTO", "x_Op_Ass", cancellationToken);
         var applyMineFilter = onlyMine && hasOperatoreColumn;
         var hasOlCodOnView = await ColumnExistsAsync(connection, "XV_A_NES_BOLLAIMPIANTO", "OLCOD", cancellationToken);
-        var hasPlacche = await ColumnExistsAsync(connection, "XV_LISTA_PRELIEVO_CLIENTI_MATERIALE", "Placche", cancellationToken);
+        var hasPlacche = await ColumnExistsAsync(connection, "WorkplanJobsSheets", "WorkplanID", cancellationToken);
 
         var bollaExpr = hasOlCodOnView
             ? "LTRIM(RTRIM(ISNULL(src.OLCOD, ''))) as Bolla"
@@ -63,7 +63,7 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
             ? ", plc.Placche"
             : ", CAST(NULL as varchar(max)) as Placche";
         var placcheApply = hasPlacche
-            ? "\nOUTER APPLY (SELECT TOP 1 vp.Placche FROM dbo.XV_LISTA_PRELIEVO_CLIENTI_MATERIALE vp WHERE vp.IDNesting = src.IDNES) plc"
+            ? "\nOUTER APPLY (\n    SELECT STUFF(\n        (\n            SELECT DISTINCT CHAR(10) + t1.CRCOD\n            FROM dbo.S_CRN t1\n            INNER JOIN dbo.L_MLPR t2 ON t1.IDCRN = t2.IDCRN\n            INNER JOIN dbo.WorkplanJobsSheets t3 ON t3.StoreLocationPartTrackingID = t2.IDMLPR\n            WHERE t3.WorkplanID = src.IDNES\n            FOR XML PATH(''), TYPE\n        ).value('.', 'varchar(max)'), 1, 1, ''\n    ) AS Placche\n) plc"
             : "";
 
         var query = $"""
