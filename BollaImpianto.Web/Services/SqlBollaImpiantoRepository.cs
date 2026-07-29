@@ -437,6 +437,65 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PianoInfoRow>> CercaInfoPianoAsync(string ricerca, CancellationToken cancellationToken)
+    {
+        var rows = new List<PianoInfoRow>();
+        if (string.IsNullOrWhiteSpace(ricerca))
+        {
+            return rows;
+        }
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        const string query = """
+            SELECT TOP (50)
+                nes.IDNES,
+                LTRIM(RTRIM(ISNULL(nes.OLCOD, ''))) as Bolla,
+                LTRIM(RTRIM(ISNULL(nes.NSCOD, ''))) as CodiceNesting,
+                ISNULL(LTRIM(RTRIM(mac.MADSC)), '') as Macchina,
+                nes.DTEXP as DataPrevista,
+                lista.ID as IdListaCollegata,
+                lista.Operatore as ListaOperatore,
+                lista.Stato as ListaStato,
+                lista.DataCreazione as ListaDataCreazione
+            FROM dbo.A_NES nes
+            LEFT JOIN dbo.A_MAC mac ON mac.MACOD = nes.MACOD
+            LEFT JOIN dbo.XT_LISTA_DI_PRELIEVO_RIGHE r ON r.IDNesting = nes.IDNES
+            LEFT JOIN dbo.XT_LISTA_DI_PRELIEVO lista ON lista.ID = r.IDLista
+            WHERE nes.OLCOD = @Ricerca OR nes.NSCOD = @Ricerca
+            ORDER BY nes.IDNES DESC
+            """;
+
+        await using var command = new SqlCommand(query, connection);
+        command.Parameters.AddWithValue("@Ricerca", ricerca.Trim());
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var idNes = ReadNullableInt(reader, 0);
+            if (!idNes.HasValue)
+            {
+                continue;
+            }
+
+            rows.Add(new PianoInfoRow
+            {
+                IdNes = idNes.Value,
+                Bolla = ReadNullableString(reader, 1) ?? string.Empty,
+                CodiceNesting = ReadNullableString(reader, 2) ?? string.Empty,
+                Macchina = ReadNullableString(reader, 3) ?? string.Empty,
+                DataPrevista = ReadNullableDateTime(reader, 4),
+                IdListaCollegata = ReadNullableInt(reader, 5),
+                ListaOperatore = ReadNullableString(reader, 6),
+                ListaStato = ReadNullableString(reader, 7),
+                ListaDataCreazione = ReadNullableDateTime(reader, 8)
+            });
+        }
+
+        return rows;
+    }
+
     public async Task<bool> DeleteListaPrelievoAsync(int idLista, string operatore, CancellationToken cancellationToken)
     {
         if (idLista <= 0 || string.IsNullOrWhiteSpace(operatore))
@@ -496,6 +555,193 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
 
         await tx.CommitAsync(cancellationToken);
         return true;
+    }
+
+    public async Task<MaterialAnalysisResult> AnalizzaMaterialeAsync(MaterialAnalysisRequest request, CancellationToken cancellationToken)
+    {
+        var result = new MaterialAnalysisResult();
+
+        await using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new SqlCommand("dbo.X_ProductionManager_Material_Analysis", connection)
+        {
+            CommandType = System.Data.CommandType.StoredProcedure,
+            CommandTimeout = 120
+        };
+
+        command.Parameters.AddWithValue("@JobTicketCode", AsDbValue(request.Bolla));
+        command.Parameters.AddWithValue("@NestingId", request.IdNesting.HasValue ? request.IdNesting.Value : DBNull.Value);
+        command.Parameters.AddWithValue("@NestingCode", AsDbValue(request.CodiceNesting));
+        command.Parameters.AddWithValue("@TrackingCode", AsDbValue(request.Rintracciabilita));
+        command.Parameters.AddWithValue("@SoloDisponibili", request.SoloDisponibili ? 1 : 0);
+
+        var jobsTable = new System.Data.DataTable();
+        jobsTable.Columns.Add("JobOrderID", typeof(int));
+        foreach (var idLav in request.Lavorazioni ?? [])
+        {
+            jobsTable.Rows.Add(idLav);
+        }
+
+        var jobsParam = command.Parameters.AddWithValue("@Jobs", jobsTable);
+        jobsParam.SqlDbType = System.Data.SqlDbType.Structured;
+        jobsParam.TypeName = "dbo.JobOrderTable";
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        // 1: anomalie
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result.Anomalie.Add(new MaterialAnomaly
+            {
+                Code = ReadStringByName(reader, "Code") ?? string.Empty,
+                Severity = ReadStringByName(reader, "Severity") ?? string.Empty,
+                Message = ReadStringByName(reader, "Message") ?? string.Empty,
+                Detail = ReadStringByName(reader, "Detail")
+            });
+        }
+
+        // 2: materiale minimo (sintesi)
+        if (await reader.NextResultAsync(cancellationToken) && await reader.ReadAsync(cancellationToken))
+        {
+            result.MaterialeMinimo = new MaterialeMinimo
+            {
+                IdNesting = ReadIntByName(reader, "NestingId"),
+                Bolla = ReadStringByName(reader, "JobTicketCode"),
+                NumLavorazioni = ReadIntByName(reader, "NumLavorazioni") ?? 0,
+                NumParti = ReadIntByName(reader, "NumParti") ?? 0,
+                Spessore = ReadDecimalByName(reader, "Spessore"),
+                NumSpessoriDistinti = ReadIntByName(reader, "NumSpessoriDistinti") ?? 0,
+                SpessoriRichiesti = ReadStringByName(reader, "SpessoriRichiesti"),
+                QualitaAmmesse = ReadStringByName(reader, "QualitaAmmesse"),
+                FormaX = ReadDecimalByName(reader, "FormaX"),
+                FormaY = ReadDecimalByName(reader, "FormaY")
+            };
+        }
+
+        // 3: qualita ammesse
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result.MaterialeMinimo?.Qualita.Add(new MaterialQuality
+                {
+                    Code = ReadStringByName(reader, "Code") ?? string.Empty,
+                    Description = ReadStringByName(reader, "Description")?.Trim()
+                });
+            }
+        }
+
+        // 4: attributi richiesti
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result.MaterialeMinimo?.Attributi.Add(new AttributoRichiesto
+                {
+                    ColumnName = ReadStringByName(reader, "ColumnName") ?? string.Empty,
+                    JdeCode = ReadStringByName(reader, "JDECode")?.Trim(),
+                    Description = ReadStringByName(reader, "Description")?.Trim(),
+                    RequiredCode = ReadStringByName(reader, "RequiredCode")?.Trim(),
+                    RequiredWeight = ReadDecimalByName(reader, "RequiredWeight"),
+                    FilterType = ReadStringByName(reader, "FilterType")?.Trim(),
+                    Obbligatorio = (ReadIntByName(reader, "Obbligatorio") ?? 0) == 1
+                });
+            }
+        }
+
+        // 5: lamiere disponibili oppure esito validazione
+        var isValidazione = !string.IsNullOrWhiteSpace(request.Rintracciabilita);
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (isValidazione)
+                {
+                    result.Validazione = new SheetValidation
+                    {
+                        TrackingId = ReadIntByName(reader, "TrackingId") ?? 0,
+                        TrackingCode = ReadStringByName(reader, "TrackingCode") ?? string.Empty,
+                        PartCode = ReadStringByName(reader, "PartCode")?.Trim(),
+                        PartDescription = ReadStringByName(reader, "PartDescription")?.Trim(),
+                        Thickness = ReadDecimalByName(reader, "Thickness"),
+                        StoreCode = ReadStringByName(reader, "StoreCode")?.Trim(),
+                        LocationCode = ReadStringByName(reader, "LocationCode")?.Trim(),
+                        GiacenzaResidua = ReadDecimalByName(reader, "WarehouseResidualQuantity"),
+                        QualityCode = ReadStringByName(reader, "QualityCode")?.Trim(),
+                        Compatible = ReadIntByName(reader, "Compatible") ?? 0,
+                        DimX = ReadDecimalByName(reader, "DimX"),
+                        DimY = ReadDecimalByName(reader, "DimY"),
+                        SpessoreOk = (ReadIntByName(reader, "SpessoreOk") ?? 0) == 1,
+                        QualitaOk = (ReadIntByName(reader, "QualitaOk") ?? 0) == 1,
+                        AttributiOk = (ReadIntByName(reader, "AttributiOk") ?? 0) == 1,
+                        DimensioniOk = (ReadIntByName(reader, "DimensioniOk") ?? 0) == 1
+                    };
+                }
+                else
+                {
+                    result.Lamiere.Add(new AvailableSheet
+                    {
+                        TrackingId = ReadIntByName(reader, "TrackingId") ?? 0,
+                        TrackingCode = ReadStringByName(reader, "TrackingCode") ?? string.Empty,
+                        PartCode = ReadStringByName(reader, "PartCode")?.Trim(),
+                        PartDescription = ReadStringByName(reader, "PartDescription")?.Trim(),
+                        Thickness = ReadDecimalByName(reader, "Thickness"),
+                        StoreCode = ReadStringByName(reader, "StoreCode")?.Trim(),
+                        LocationCode = ReadStringByName(reader, "LocationCode")?.Trim(),
+                        GiacenzaResidua = ReadDecimalByName(reader, "WarehouseResidualQuantity"),
+                        QualityCode = ReadStringByName(reader, "QualityCode")?.Trim(),
+                        Compatible = ReadIntByName(reader, "Compatible") ?? 0,
+                        DimX = ReadDecimalByName(reader, "DimX"),
+                        DimY = ReadDecimalByName(reader, "DimY"),
+                        IsGhost = (ReadIntByName(reader, "IsGhost") ?? 0) == 1
+                    });
+                }
+            }
+        }
+
+        // 6: caratteristiche non conformi
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result.CaratteristicheNonConformi.Add(new AttributeFailure
+                {
+                    ColumnName = ReadStringByName(reader, "ColumnName") ?? string.Empty,
+                    JdeCode = ReadStringByName(reader, "JDECode")?.Trim(),
+                    Description = ReadStringByName(reader, "Description")?.Trim(),
+                    ValoreLamiera = ReadStringByName(reader, "SheetCode")?.Trim(),
+                    PesoLamiera = ReadDecimalByName(reader, "SheetWeight"),
+                    ValoreRichiesto = ReadStringByName(reader, "RequiredCode")?.Trim(),
+                    PesoRichiesto = ReadDecimalByName(reader, "RequiredWeight"),
+                    Status = ReadIntByName(reader, "Status") ?? 0,
+                    Obbligatorio = (ReadIntByName(reader, "Obbligatorio") ?? 0) == 1
+                });
+            }
+        }
+
+        return result;
+    }
+
+    private static object AsDbValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();
+
+    private static string? ReadStringByName(SqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return ReadNullableString(reader, ordinal);
+    }
+
+    private static int? ReadIntByName(SqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return ReadNullableInt(reader, ordinal);
+    }
+
+    private static decimal? ReadDecimalByName(SqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return ReadNullableDecimal(reader, ordinal);
     }
 
     private static ListaPrelievoPiano MapListaPiano(SqlDataReader reader)
@@ -593,6 +839,17 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
         if (decimal.TryParse(trimmed, NumberStyles.Any, CultureInfo.GetCultureInfo("it-IT"), out var italianDecimal))
         {
             value = italianDecimal;
+            return true;
+        }
+
+        var parts = trimmed.Split(':');
+        if (parts.Length is 2 or 3
+            && int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var hours)
+            && int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var minutes)
+            && (parts.Length == 2 || int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out _)))
+        {
+            var seconds = parts.Length == 3 ? int.Parse(parts[2], CultureInfo.InvariantCulture) : 0;
+            value = hours + (minutes / 60m) + (seconds / 3600m);
             return true;
         }
 

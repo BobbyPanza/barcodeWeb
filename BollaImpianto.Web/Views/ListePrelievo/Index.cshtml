@@ -35,6 +35,30 @@
         }
     </div>
 
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form class="d-flex gap-2 align-items-center flex-wrap" id="formCercaInfoPiano" onsubmit="return false;">
+                <label class="form-label mb-0 small text-nowrap" for="cercaInfoPianoInput">Cerca bolla / nesting</label>
+                <input class="form-control form-control-sm" id="cercaInfoPianoInput" placeholder="Es. 123456" autocomplete="off" style="max-width: 16rem;" />
+                <button class="btn btn-outline-primary btn-sm" type="submit" id="btnCercaInfoPiano">Cerca</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalInfoPiano" tabindex="-1" aria-labelledby="modalInfoPianoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalInfoPianoLabel">Info bolla / nesting</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="infoPianoContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @if (!string.IsNullOrWhiteSpace(Model.LastResult))
     {
         <div class="alert alert-info py-2">@Model.LastResult</div>
@@ -323,6 +347,62 @@
 
             var input = document.getElementById('barcodeBollaInput');
             if (input) { input.focus(); input.select?.(); }
+
+            var infoForm = document.getElementById('formCercaInfoPiano');
+            var infoInput = document.getElementById('cercaInfoPianoInput');
+            var infoContent = document.getElementById('infoPianoContent');
+            var infoModalEl = document.getElementById('modalInfoPiano');
+            if (infoForm && infoInput && infoContent && infoModalEl) {
+                var infoModal = new bootstrap.Modal(infoModalEl);
+
+                function escapeHtml(value) {
+                    var div = document.createElement('div');
+                    div.textContent = value == null ? '' : String(value);
+                    return div.innerHTML;
+                }
+
+                function renderRisultati(risultati) {
+                    if (!risultati || risultati.length === 0) {
+                        infoContent.innerHTML = '<p class="text-muted mb-0">Nessun risultato trovato per il valore inserito.</p>';
+                        return;
+                    }
+
+                    var rows = risultati.map(function (r) {
+                        return '<tr>' +
+                            '<td>' + escapeHtml(r.bolla) + '</td>' +
+                            '<td>' + escapeHtml(r.codiceNesting) + '</td>' +
+                            '<td>' + escapeHtml(r.macchina || 'N/D') + '</td>' +
+                            '<td>' + escapeHtml(r.dataPrevista || 'N/D') + '</td>' +
+                            '<td>' + (r.listaCollegata ? escapeHtml(r.listaCollegata) : '<span class="text-muted">Non assegnato a nessuna lista</span>') + '</td>' +
+                            '</tr>';
+                    }).join('');
+
+                    infoContent.innerHTML =
+                        '<div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">' +
+                        '<thead><tr><th>Bolla</th><th>Nesting</th><th>Macchina assegnata</th><th>Data prevista</th><th>Lista collegata</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody></table></div>';
+                }
+
+                function cercaInfoPiano() {
+                    var query = infoInput.value.trim();
+                    if (!query) { return; }
+
+                    infoContent.innerHTML = '<p class="text-muted mb-0">Ricerca in corso...</p>';
+                    infoModal.show();
+
+                    fetch('@Url.Action("CercaInfoPiano", "ListePrelievo")?q=' + encodeURIComponent(query))
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) { renderRisultati(data.risultati); })
+                        .catch(function () {
+                            infoContent.innerHTML = '<p class="text-danger mb-0">Errore durante la ricerca.</p>';
+                        });
+                }
+
+                infoForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    cercaInfoPiano();
+                });
+            }
 
             document.querySelectorAll('tbody tr').forEach(function (row) {
                 var inputs = row.querySelectorAll('input[name="dtExp"], input[name="nsNot"]');

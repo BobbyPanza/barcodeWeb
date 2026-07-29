@@ -77,6 +77,30 @@ public sealed class ListePrelievoController(
         return View(model);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> CercaInfoPiano(string? q, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return Json(new { risultati = Array.Empty<object>() });
+        }
+
+        var righe = await repository.CercaInfoPianoAsync(q.Trim(), cancellationToken);
+        var risultati = righe.Select(r => new
+        {
+            r.IdNes,
+            r.Bolla,
+            r.CodiceNesting,
+            r.Macchina,
+            dataPrevista = r.DataPrevista?.ToString("dd/MM/yyyy"),
+            listaCollegata = r.IdListaCollegata.HasValue
+                ? $"#{r.IdListaCollegata} - {(string.IsNullOrWhiteSpace(r.ListaOperatore) ? "N/D" : r.ListaOperatore)} - {(string.IsNullOrWhiteSpace(r.ListaStato) ? "N/D" : r.ListaStato)}"
+                : null
+        });
+
+        return Json(new { risultati });
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> NuovaLista(string operatore, string? stato, bool nascondiCompletate, CancellationToken cancellationToken)

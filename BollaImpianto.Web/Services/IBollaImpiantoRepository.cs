@@ -18,4 +18,6 @@ public interface IBollaImpiantoRepository
     Task<bool> AddPianoToListaByBollaAsync(int idLista, string bolla, CancellationToken cancellationToken);
     Task AddPianoToListaAsync(int idLista, int idNes, CancellationToken cancellationToken);
     Task RemovePianoFromListaAsync(int idLista, int idNes, CancellationToken cancellationToken);
+    Task<IReadOnlyList<PianoInfoRow>> CercaInfoPianoAsync(string ricerca, CancellationToken cancellationToken);
+    Task<MaterialAnalysisResult> AnalizzaMaterialeAsync(MaterialAnalysisRequest request, CancellationToken cancellationToken);
 }
