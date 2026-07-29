@@ -143,7 +143,17 @@ Se `Api:Keys` e' vuoto, l'autenticazione via API key e' disabilitata e resta val
 
 ## Database
 
-Connessione in `ConnectionStrings:MyDatabase`. Gli script vanno applicati in ordine di data.
+La connessione **non e' committata**: `ConnectionStrings:MyDatabase` in `appsettings.json` e'
+vuota di proposito. Valorizzarla in uno di questi modi:
+
+- `appsettings.Production.json` sul server (non committato);
+- `appsettings.Development.json` in locale (in `.gitignore`);
+- variabile d'ambiente `ConnectionStrings__MyDatabase`.
+
+All'avvio, se la connessione e' assente o vuota, l'applicazione fallisce con un messaggio
+esplicito invece di tentare una connessione senza credenziali.
+
+Gli script vanno applicati in ordine di data.
 
 | Script | Contenuto |
 |---|---|
@@ -208,7 +218,7 @@ dotnet publish BollaImpianto.Web/BollaImpianto.Web.csproj -c Release -o publish/
 
 | Chiave | Descrizione |
 |---|---|
-| `ConnectionStrings:MyDatabase` | Connessione SQL Server |
+| `ConnectionStrings:MyDatabase` | Connessione SQL Server. Vuota in `appsettings.json`: va fornita fuori dal repo |
 | `Api:Keys` | Chiavi per l'autenticazione API (array). Vuoto = solo cookie |
 | `PrinterManager:IndirizzoPrinterManager` | Endpoint del servizio di stampa |
 | `PrinterManager:NomeReportLista` | Report per la stampa della lista |

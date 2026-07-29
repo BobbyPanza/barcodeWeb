@@ -8,8 +8,12 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
 {
     private const string MacchinaGenericaPlasma = "DLG-ALL_PLASMA";
 
-    private readonly string _connectionString = configuration.GetConnectionString("MyDatabase")
-        ?? throw new InvalidOperationException("Connection string 'MyDatabase' non configurata.");
+    private readonly string _connectionString =
+        configuration.GetConnectionString("MyDatabase") is { } cs && !string.IsNullOrWhiteSpace(cs)
+            ? cs
+            : throw new InvalidOperationException(
+                "Connection string 'MyDatabase' non configurata. Impostarla in appsettings.Production.json "
+                + "oppure nella variabile d'ambiente ConnectionStrings__MyDatabase.");
 
     public async Task<OperatoreAuth?> ValidateOperatoreAsync(string opCod, string password, CancellationToken cancellationToken)
     {
