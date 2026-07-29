@@ -165,10 +165,6 @@ namespace WinFormsApp1
                 }
 
 
-                //  OdbcConnectionStringBuilder connectionStringBuilder = new OdbcConnectionStringBuilder();
-                //connectionStringBuilder.Dsn ="GABRIELLI";
-                // connectionStringBuilder["Uid"] = "FSM00001"; // Sostituisci con il tuo username
-                // connectionStringBuilder["Pwd"] = "CCDBUSER_04"; // Sostituisci con la tua password
             }
         }
 
