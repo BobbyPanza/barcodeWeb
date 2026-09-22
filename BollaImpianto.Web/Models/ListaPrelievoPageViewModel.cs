@@ -15,6 +15,9 @@ public sealed class ListaPrelievoPageViewModel
     public IReadOnlyList<ListaPrelievoPiano> PianiAssegnati { get; set; } = [];
     public IReadOnlyList<ListaPrelievoPiano> PianiNonAssegnati { get; set; } = [];
     public IReadOnlyList<string> StampantiDisponibili { get; set; } = [];
-    public string? PrinterName { get; set; }
+    /// <summary>Stampante per il report lista, memorizzata nei cookie del dispositivo.</summary>
+    public string? StampanteLista { get; set; }
+    /// <summary>Stampante per le etichette (lista completa e singola riga), memorizzata nei cookie del dispositivo.</summary>
+    public string? StampanteEtichette { get; set; }
     public string? LastResult { get; set; }
 }

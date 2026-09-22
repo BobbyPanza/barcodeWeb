@@ -26,7 +26,6 @@
                     <form asp-action="EliminaLista" method="post" class="d-inline" onsubmit="return confirm('Eliminare definitivamente questa lista e tutte le righe collegate?');">
                         <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
                         <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
-                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
                         <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
                         <button type="submit" class="btn btn-sm btn-outline-danger">Elimina lista</button>
                     </form>
@@ -93,7 +92,6 @@
                     <div class="card-header py-2">Liste esistenti</div>
                     <div class="card-body py-2">
                         <form method="get" asp-action="Index" class="d-flex gap-2 flex-wrap align-items-center">
-                            <input type="hidden" name="printerName" value="@Model.PrinterName" />
                             <label class="form-label mb-0 small text-muted">Filtro</label>
                             <select name="nascondiCompletate" class="form-select form-select-sm" style="max-width: 11rem;" title="Filtro stato lista">
                                 @if (Model.NascondiListeCompletate)
@@ -140,21 +138,44 @@
                             <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
                             <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
                             <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
+
                             <div class="mb-3">
-                                <label class="form-label" for="modalPrinterSelect">Stampante</label>
-                                <select class="form-select" name="printerName" id="modalPrinterSelect">
-                                    <option value="">Default report</option>
-                                    @foreach (var stampante in Model.StampantiDisponibili)
-                                    {
-                                        var sel = string.Equals(stampante, Model.PrinterName, StringComparison.OrdinalIgnoreCase);
-                                        <option value="@stampante" selected="@sel">@stampante</option>
-                                    }
-                                </select>
-                                <div class="form-text">Stampanti visibili al processo dell’app (server).</div>
+                                <label class="form-label" for="selectStampanteLista">Stampa lista</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <select class="form-select" name="stampanteLista" id="selectStampanteLista">
+                                        <option value="">Default report</option>
+                                        @foreach (var stampante in Model.StampantiDisponibili)
+                                        {
+                                            var sel = string.Equals(stampante, Model.StampanteLista, StringComparison.OrdinalIgnoreCase);
+                                            <option value="@stampante" selected="@sel">@stampante</option>
+                                        }
+                                    </select>
+                                    <button type="submit" class="btn btn-primary text-nowrap" formaction="@Url.Action("StampaLista", "ListePrelievo")">Stampa</button>
+                                </div>
                             </div>
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary" formaction="@Url.Action("StampaLista", "ListePrelievo")">Stampa lista</button>
-                                <button type="submit" class="btn btn-outline-primary" formaction="@Url.Action("StampaEtichette", "ListePrelievo")">Stampa etichette</button>
+
+                            <div class="mb-2">
+                                <label class="form-label" for="selectStampanteEtichette">Stampa etichette</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <select class="form-select" name="stampanteEtichette" id="selectStampanteEtichette">
+                                        <option value="">Default report</option>
+                                        @foreach (var stampante in Model.StampantiDisponibili)
+                                        {
+                                            var sel = string.Equals(stampante, Model.StampanteEtichette, StringComparison.OrdinalIgnoreCase);
+                                            <option value="@stampante" selected="@sel">@stampante</option>
+                                        }
+                                    </select>
+                                    <button type="submit" class="btn btn-primary text-nowrap" formaction="@Url.Action("StampaEtichette", "ListePrelievo")">Stampa</button>
+                                </div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-outline-secondary btn-sm" formaction="@Url.Action("SalvaStampanti", "ListePrelievo")">Salva stampanti senza stampare</button>
+                            </div>
+
+                            <div class="form-text mt-2">
+                                Stampanti visibili al processo dell’app (server). Le scelte restano memorizzate su questo dispositivo
+                                e la stampa etichetta a bordo riga usa la stampante etichette qui selezionata.
                             </div>
                         </form>
                     </div>
@@ -170,7 +191,6 @@
                 <form asp-action="AssegnaDaBarcode" method="post" class="row g-2 align-items-end">
                     <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
                     <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
-                    <input type="hidden" name="printerName" value="@Model.PrinterName" />
                     <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
                     <div class="col">
                         <label class="form-label small mb-0 visually-hidden" for="barcodeBollaInput">Bolla</label>
@@ -188,7 +208,6 @@
                 <span class="small fw-semibold">Piani non assegnati (assegnabili)</span>
                 <form method="get" asp-action="Index" class="d-flex gap-2 align-items-center flex-grow-1" style="max-width: 28rem;">
                     <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
-                    <input type="hidden" name="printerName" value="@Model.PrinterName" />
                     <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
                     <input class="form-control form-control-sm" name="search" value="@Model.SearchNonAssigned" placeholder="Filtra bolla / nesting / materiale" />
                     <button class="btn btn-outline-secondary btn-sm" type="submit">Filtra</button>
@@ -219,7 +238,6 @@
                                         <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
                                         <input type="hidden" name="idNes" value="@piano.IdNes" />
                                         <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
-                                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
                                         <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
                                         <button class="btn btn-sm btn-outline-success py-0" type="submit">Assegna</button>
                                     </form>
@@ -266,7 +284,6 @@
                                         <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
                                         <input type="hidden" name="idNes" value="@piano.IdNes" />
                                         <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
-                                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
                                         <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
                                         <button class="btn btn-sm btn-danger py-0" type="submit">Disabbina</button>
                                     </form>
@@ -274,7 +291,6 @@
                                         <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
                                         <input type="hidden" name="idNes" value="@piano.IdNes" />
                                         <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
-                                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
                                         <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
                                         <button class="btn btn-sm btn-outline-primary py-0" type="submit">Etichetta</button>
                                     </form>
@@ -282,7 +298,6 @@
                                         <input type="hidden" name="listaId" value="@Model.ListaSelezionataId" />
                                         <input type="hidden" name="idNes" value="@piano.IdNes" />
                                         <input type="hidden" name="search" value="@Model.SearchNonAssigned" />
-                                        <input type="hidden" name="printerName" value="@Model.PrinterName" />
                                         <input type="hidden" name="nascondiCompletate" value="@(Model.NascondiListeCompletate ? "true" : "false")" />
                                         <button type="submit" class="btn btn-sm btn-success py-0">Salva</button>
                                     </form>

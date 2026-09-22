@@ -19,11 +19,13 @@ public sealed class ListePrelievoController(
     IHttpClientFactory httpClientFactory) : Controller
 {
     private const string ListeFilterCookieName = "BollaImpianto.ListeNascondiCompletate";
+    private const string StampanteListaCookieName = "BollaImpianto.StampanteLista";
+    private const string StampanteEtichetteCookieName = "BollaImpianto.StampanteEtichette";
 
     private readonly PrinterManagerOptions _printerOptions = printerManagerOptions.Value;
 
     [HttpGet]
-    public async Task<IActionResult> Index(int? listaId, string? search, string? printerName, bool? nascondiCompletate, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Index(int? listaId, string? search, bool? nascondiCompletate, CancellationToken cancellationToken = default)
     {
         bool nascondiEffettivo;
         if (nascondiCompletate.HasValue)
@@ -63,7 +65,8 @@ public sealed class ListePrelievoController(
                 ?? User.FindFirst("operator_description")?.Value
                 ?? string.Empty,
             SearchNonAssigned = search,
-            PrinterName = printerName,
+            StampanteLista = ReadPrinterCookie(StampanteListaCookieName),
+            StampanteEtichette = ReadPrinterCookie(StampanteEtichetteCookieName),
             StampantiDisponibili = stampanti,
             LastResult = TempData["ResultMessage"]?.ToString()
         };
@@ -122,42 +125,42 @@ public sealed class ListePrelievoController(
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AssegnaDaBarcode(int listaId, string barcodeBolla, string? search, string? printerName, bool nascondiCompletate, CancellationToken cancellationToken)
+    public async Task<IActionResult> AssegnaDaBarcode(int listaId, string barcodeBolla, string? search, bool nascondiCompletate, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(barcodeBolla))
         {
             TempData["ResultMessage"] = "Barcode/bolla obbligatorio.";
-            return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+            return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
         }
 
         var ok = await repository.AddPianoToListaByBollaAsync(listaId, barcodeBolla, cancellationToken);
         TempData["ResultMessage"] = ok
             ? $"Bolla {barcodeBolla} assegnata alla lista {listaId}."
             : $"Nessun piano trovato per bolla {barcodeBolla}.";
-        return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+        return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AssegnaManuale(int listaId, int idNes, string? search, string? printerName, bool nascondiCompletate, CancellationToken cancellationToken)
+    public async Task<IActionResult> AssegnaManuale(int listaId, int idNes, string? search, bool nascondiCompletate, CancellationToken cancellationToken)
     {
         await repository.AddPianoToListaAsync(listaId, idNes, cancellationToken);
         TempData["ResultMessage"] = $"Piano {idNes} assegnato.";
-        return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+        return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Disabbina(int listaId, int idNes, string? search, string? printerName, bool nascondiCompletate, CancellationToken cancellationToken)
+    public async Task<IActionResult> Disabbina(int listaId, int idNes, string? search, bool nascondiCompletate, CancellationToken cancellationToken)
     {
         await repository.RemovePianoFromListaAsync(listaId, idNes, cancellationToken);
         TempData["ResultMessage"] = $"Piano {idNes} disabbinato.";
-        return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+        return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AggiornaPianoLista(int listaId, int idNes, string? dtExp, string? nsNot, string? search, string? printerName, bool nascondiCompletate, CancellationToken cancellationToken)
+    public async Task<IActionResult> AggiornaPianoLista(int listaId, int idNes, string? dtExp, string? nsNot, string? search, bool nascondiCompletate, CancellationToken cancellationToken)
     {
         DateTime? parsedDate = null;
         if (!string.IsNullOrWhiteSpace(dtExp))
@@ -166,7 +169,7 @@ public sealed class ListePrelievoController(
             if (!DateTime.TryParseExact(dtExp, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var localDate))
             {
                 TempData["ResultMessage"] = "Formato data non valido.";
-                return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+                return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
             }
 
             parsedDate = localDate;
@@ -174,64 +177,83 @@ public sealed class ListePrelievoController(
 
         await repository.UpdatePianoLavoroAsync(idNes, parsedDate, nsNot, cancellationToken);
         TempData["ResultMessage"] = $"Piano {idNes} aggiornato.";
-        return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+        return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EliminaLista(int listaId, string? search, string? printerName, bool nascondiCompletate, CancellationToken cancellationToken)
+    public async Task<IActionResult> EliminaLista(int listaId, string? search, bool nascondiCompletate, CancellationToken cancellationToken)
     {
         var user = User.Identity?.Name ?? string.Empty;
         var ok = await repository.DeleteListaPrelievoAsync(listaId, user, cancellationToken);
         TempData["ResultMessage"] = ok
             ? $"Lista {listaId} eliminata (righe e testata)."
             : "Impossibile eliminare la lista: solo il creatore può eliminarla, oppure lista non trovata.";
-        return RedirectToAction(nameof(Index), new { listaId = (int?)null, search, printerName, nascondiCompletate });
+        return RedirectToAction(nameof(Index), new { listaId = (int?)null, search, nascondiCompletate });
+    }
+
+    /// <summary>Memorizza le stampanti sul dispositivo senza lanciare stampe (utile per la sola etichetta a bordo riga).</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult SalvaStampanti(int listaId, string? search, string? stampanteLista, string? stampanteEtichette, bool nascondiCompletate)
+    {
+        WritePrinterCookie(StampanteListaCookieName, stampanteLista);
+        WritePrinterCookie(StampanteEtichetteCookieName, stampanteEtichette);
+
+        TempData["ResultMessage"] = "Stampanti memorizzate su questo dispositivo.";
+        return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StampaLista(int listaId, string? search, string? printerName, bool nascondiCompletate, CancellationToken cancellationToken)
+    public async Task<IActionResult> StampaLista(int listaId, string? search, string? stampanteLista, string? stampanteEtichette, bool nascondiCompletate, CancellationToken cancellationToken)
     {
+        WritePrinterCookie(StampanteListaCookieName, stampanteLista);
+        WritePrinterCookie(StampanteEtichetteCookieName, stampanteEtichette);
+
         var ok = await SendPrintAsync(
             _printerOptions.NomeReportLista,
             new { IDLista = listaId },
             $"Stampa lista prelievo {listaId}",
-            printerName,
+            stampanteLista,
             cancellationToken);
 
         TempData["ResultMessage"] = ok ? $"Stampa lista {listaId} inviata." : "Errore stampa lista.";
-        return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+        return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StampaEtichette(int listaId, string? search, string? printerName, bool nascondiCompletate, CancellationToken cancellationToken)
+    public async Task<IActionResult> StampaEtichette(int listaId, string? search, string? stampanteLista, string? stampanteEtichette, bool nascondiCompletate, CancellationToken cancellationToken)
     {
+        WritePrinterCookie(StampanteListaCookieName, stampanteLista);
+        WritePrinterCookie(StampanteEtichetteCookieName, stampanteEtichette);
+
         var ok = await SendPrintAsync(
             _printerOptions.NomeReportEtichetta,
             new { IDLista = listaId },
             $"Stampa etichette lista {listaId}",
-            printerName,
+            stampanteEtichette,
             cancellationToken);
 
         TempData["ResultMessage"] = ok ? $"Stampa etichette lista {listaId} inviata." : "Errore stampa etichette lista.";
-        return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+        return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StampaEtichettaSingola(int listaId, int idNes, string? search, string? printerName, bool nascondiCompletate, CancellationToken cancellationToken)
+    public async Task<IActionResult> StampaEtichettaSingola(int listaId, int idNes, string? search, bool nascondiCompletate, CancellationToken cancellationToken)
     {
+        // Nessun dialog a bordo riga: si usa la stampante etichette scelta sul dispositivo.
         var ok = await SendPrintAsync(
             _printerOptions.NomeReportEtichettaSingola,
             new { IDLista = listaId, IDNesting = idNes },
             $"Stampa etichetta singola nesting {idNes}",
-            printerName,
+            ReadPrinterCookie(StampanteEtichetteCookieName),
             cancellationToken);
 
         TempData["ResultMessage"] = ok ? $"Stampa etichetta nesting {idNes} inviata." : $"Errore stampa etichetta nesting {idNes}.";
-        return RedirectToAction(nameof(Index), new { listaId, search, printerName, nascondiCompletate });
+        return RedirectToAction(nameof(Index), new { listaId, search, nascondiCompletate });
     }
 
     private async Task<bool> SendPrintAsync(
@@ -317,15 +339,31 @@ public sealed class ListePrelievoController(
     }
 
     private void WriteListeFilterCookie(bool nascondiCompletate)
+        => Response.Cookies.Append(ListeFilterCookieName, nascondiCompletate ? "1" : "0", BuildPersistentCookieOptions());
+
+    /// <summary>Stampante scelta sul dispositivo (lista o etichette): sopravvive al riavvio del browser.</summary>
+    private string? ReadPrinterCookie(string cookieName)
+        => Request.Cookies.TryGetValue(cookieName, out var raw) && !string.IsNullOrWhiteSpace(raw)
+            ? raw.Trim()
+            : null;
+
+    private void WritePrinterCookie(string cookieName, string? printerName)
     {
-        var options = new CookieOptions
+        if (string.IsNullOrWhiteSpace(printerName))
         {
-            HttpOnly = true,
-            IsEssential = true,
-            MaxAge = TimeSpan.FromDays(400),
-            SameSite = SameSiteMode.Lax,
-            Secure = Request.IsHttps
-        };
-        Response.Cookies.Append(ListeFilterCookieName, nascondiCompletate ? "1" : "0", options);
+            Response.Cookies.Delete(cookieName);
+            return;
+        }
+
+        Response.Cookies.Append(cookieName, printerName.Trim(), BuildPersistentCookieOptions());
     }
+
+    private CookieOptions BuildPersistentCookieOptions() => new()
+    {
+        HttpOnly = true,
+        IsEssential = true,
+        MaxAge = TimeSpan.FromDays(400),
+        SameSite = SameSiteMode.Lax,
+        Secure = Request.IsHttps
+    };
 }
