@@ -3,7 +3,7 @@
 Applicazione web ASP.NET Core (MVC, .NET 10) per la gestione bolla/impianto e delle liste di
 prelievo dei piani di taglio, con analisi di compatibilita' materiale.
 
-Versione corrente: **1.3.0**
+Versione corrente: **1.4.0**
 
 ## Pagine
 
@@ -20,6 +20,11 @@ nesting e apre un popup con: macchina assegnata, data prevista di taglio e lista
 collegata (o l'indicazione che il piano non e' assegnato ad alcuna lista).
 
 Endpoint interno: `GET /ListePrelievo/CercaInfoPiano?q=<bolla|nesting>`.
+
+### Piani assegnati: ripetizioni
+
+La tabella dei piani assegnati alla lista mostra la colonna **Rip.**, il numero di ripetizioni
+del piano: somma di `L_NELM.NMRIP` su tutte le righe del nesting.
 
 ### Stampa lista ed etichette
 

@@ -269,10 +269,16 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
                     CAST(NULL as varchar(max)) as Attributi,
                     v.Placche as Placche,
                     nes.DTEXP as DataPrevista,
-                    nes.NSNOT as Note
+                    nes.NSNOT as Note,
+                    rip.Ripetizioni
                 FROM dbo.XV_LISTA_PRELIEVO_CLIENTI_MATERIALE v
                 INNER JOIN dbo.A_NES nes ON nes.IDNES = v.IDNesting
                 LEFT JOIN dbo.A_MAC mac ON mac.MACOD = nes.MACOD
+                OUTER APPLY (
+                    SELECT SUM(e.NMRIP) as Ripetizioni
+                    FROM dbo.L_NELM e
+                    WHERE e.IDNES = nes.IDNES
+                ) rip
                 WHERE v.IDLista = @IdLista
                 ORDER BY v.IDNesting DESC
                 """
@@ -290,10 +296,16 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
                     CAST(NULL as varchar(max)) as Attributi,
                     CAST(NULL as varchar(max)) as Placche,
                     nes.DTEXP as DataPrevista,
-                    nes.NSNOT as Note
+                    nes.NSNOT as Note,
+                    rip.Ripetizioni
                 FROM dbo.XV_LISTA_PRELIEVO_CLIENTI_MATERIALE v
                 INNER JOIN dbo.A_NES nes ON nes.IDNES = v.IDNesting
                 LEFT JOIN dbo.A_MAC mac ON mac.MACOD = nes.MACOD
+                OUTER APPLY (
+                    SELECT SUM(e.NMRIP) as Ripetizioni
+                    FROM dbo.L_NELM e
+                    WHERE e.IDNES = nes.IDNES
+                ) rip
                 WHERE v.IDLista = @IdLista
                 ORDER BY v.IDNesting DESC
                 """;
@@ -770,7 +782,8 @@ public sealed class SqlBollaImpiantoRepository(IConfiguration configuration) : I
             Attributi = ReadNullableString(reader, 9),
             Placche = ReadNullableString(reader, 10),
             DataPrevista = ReadNullableDateTime(reader, 11),
-            Note = ReadNullableString(reader, 12)
+            Note = ReadNullableString(reader, 12),
+            Ripetizioni = reader.FieldCount > 13 ? ReadNullableInt(reader, 13) : null
         };
     }
 

@@ -266,6 +266,7 @@
                             <th>Impianto</th>
                             <th>Materiale</th>
                             <th>Dimensioni</th>
+                            <th class="text-end">Rip.</th>
                             <th>Taglio previsto</th>
                             <th>Note</th>
                             <th>Clienti</th>
@@ -308,6 +309,7 @@
                             <td class="small text-nowrap">@piano.Macchina</td>
                             <td>@piano.Materiale</td>
                             <td class="text-nowrap">@piano.Lunghezza?.ToString("0") × @piano.Larghezza?.ToString("0") × @piano.Spessore?.ToString("0")</td>
+                            <td class="text-end fw-semibold">@piano.Ripetizioni</td>
                             <td style="min-width: 10.5rem;">
                                 <input class="form-control form-control-sm"
                                        type="date"

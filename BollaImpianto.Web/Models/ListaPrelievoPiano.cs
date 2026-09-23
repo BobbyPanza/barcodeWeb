@@ -15,4 +15,5 @@ public sealed class ListaPrelievoPiano
     public string? Placche { get; set; }
     public DateTime? DataPrevista { get; set; }
     public string? Note { get; set; }
+    public int? Ripetizioni { get; set; }
 }
